@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "warhammer-management-system"
+version = "1.0.7"
+description = "Local-first Warhammer collection manager"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Proprietary"}
+authors = [{name = "WMS Project"}]
+dependencies = ["pypdf>=5,<7"]
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.7,<7"]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+wms = "wms.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+wms = ["default_rules/*.json", "assets/*.svg"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = ["src"]

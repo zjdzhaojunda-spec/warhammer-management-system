@@ -1,0 +1,235 @@
+# Warhammer Management System (WMS)
+
+WMS is a local-first desktop application for managing a physical Warhammer
+collection. The current development target is **Revision 1.0.7**: a dependable local
+collection database with per-Game-System parser rules and official unit data.
+
+Collection name/model displays follow the Active radio selection: an active
+Alternative Model is shown by its unit name, while Original restores the original
+Unit name.
+
+## Current features
+
+- Dashboard totals Points by Game System and Faction without multiplying the score
+  of a multi-model Unit; it also shows Unit-instance and Physical-Model counts
+- Export page creates an independent `.sqlite3` database for one selected
+  Game System + Faction, preserving its Units, Physical Models, configurations,
+  Alternative Models, and Active selections while excluding every other Faction
+- SQLite database created through versioned migrations
+- Core hierarchy: Game System → Faction → Unit → Physical Model → Configuration
+- Collection service with create/list/update/delete operations
+- Working Collection page that can create the Game System → Faction → Unit
+  hierarchy while adding a Physical Model
+- Collection tree sorted by Unit Name but grouped by the unit's database identity;
+  separately imported same-named units remain separate rows, and only multi-model
+  units have an expand arrow
+- Game Systems are fully user-managed: any name can be added, and deleting a
+  system removes it from every page together with its hierarchy, rules file, and URL
+- Draggable left navigation divider with a protected minimum width
+- Collection filters for hierarchy, assembly, paint, magnetization, and keyword
+- Multi-select Collection editing for assembly, paint, magnetization, and three
+  location modes: shared custom text, the same `Cabinet X Slot Y`, or sequential
+  `Cabinet X Slot Y` assignment
+- Multi-select delete confirmation that visibly lists every selected model and
+  atomically deletes only those highlighted rows; cancelling preserves selection
+- Collection Copy can duplicate selected physical models inside their current Unit,
+  or duplicate complete Units as independent database entries with new IDs
+- Right-click Collection rows expose Unit- or Physical-Model-specific Copy/Delete
+  commands plus Refresh; complete Unit deletion cascades only that Unit's models
+- Right-click the Collection column header to choose visible database fields; the
+  column selection is saved between launches while Name remains visible
+- Collection retains readable, unique Unit Codes and Model Codes while retaining
+  internal UUID relationship keys; they are hidden by default and can be shown from
+  the column-header context menu
+- Unit and Physical Model names use natural numeric sorting (`1, 2, ... 10`)
+- Magnetized Physical Models can store multiple named configurations divided into
+  **Model** or **Weapon**, with one active state of each type at the same time. Model
+  configurations can be selected from the current Game System's JSON rule profiles
+  or entered manually when a profile is missing; Weapon configurations store a
+  Weapon / Loadout. Each current state can be switched independently
+- Editing a multi-model Unit opens a dedicated Unit editor: the complete Unit can be
+  magnetized in one action, while every Physical Model remains independently editable.
+  Each model keeps its own Alternative Models and explicit Active Model selection;
+  Points automatically follow the Active Model and return to the original Unit value
+  when Original is selected
+- Both editors now use the same explicit order: `Magnetized`, searchable
+  `Alternative Model`, then an `Active` radio choice between the original Unit name
+  and the selected Alternative. The Unit-level choice applies to every Physical Model
+  and can still be overridden individually
+- The Physical Model editor can create those current states directly: its Model
+  dropdown reads the selected Game System's PDF Rule, limits choices to the model's
+  current Faction, and supports case-insensitive keyword search anywhere in a unit
+  name. Choices show normal unit size and Points; the editable Weapon dropdown
+  accepts a new loadout or reuses a saved state. Saving immediately updates the
+  Collection Model, Weapon / Loadout, and Points columns
+- GW App text import with read-only detection, immutable Preview snapshots, explicit
+  confirmation, and rollback-safe Collection + Unit Data updates
+- GW App inventory-list imports that infer the faction from the line immediately
+  after an `Inventory ... pts` heading
+- Separate parser modules for AoS App Inventory and current 40K App Inventory exports
+- Import can only target an existing Game System; new Game Systems are created in
+  Settings, never inferred or silently created from pasted text or CSV
+- If pasted App Text does not match the selected system's Parser, Preview reports
+  the target system, Parser, and failure reason, clears stale results, blocks Import,
+  and writes nothing to Unit Data or Collection
+- Settings page with a read-only Unit Data source URL; new PDF URLs are entered only
+  inside the scan-and-preview flow
+- Settings keeps a separate Battle Profiles URL for each Game System and shows
+  the selected system's current URL immediately
+- Settings can safely delete all physical models belonging to one Game System
+  while preserving its Game System, Factions, Units, and rules file
+- Settings reloads Game System database IDs when opened and before deletion, so
+  systems created later through Import can still have all models deleted safely
+- PDF scan/update action that previews publication, factions, profiles, and Parser
+  before confirmation writes only the selected Game System's Unit Data JSON
+- Collection Points load from that PDF/official-data rule even when Magnetized is
+  off; an active magnetized Model configuration overrides the original unit's Points
+- Age of Sigmar units use `Default` as their Weapon / Loadout because AoS rules do
+  not provide a separate selectable weapon list
+- AoS imports use the scanned `UNIT SIZE` value to create the correct number of
+  physical models per army-list entry
+- New Game Systems can only be created with **Create Game System…** in Settings.
+  Collection, Import, CSV, PDF scanning, and parser generation can only select an
+  existing system and never infer or create one from source data.
+- Settings **Create Parser Rule…** uses the currently selected existing Game System
+  and does not require Faction; detected faction names remain optional profile metadata
+- Every Game System owns two independent, directly replaceable files named after it:
+  `<Game System>.import-rule.json` defines parsing logic and
+  `<Game System>.unit-data.json` stores official profiles
+- App imports use extracted names, repeated unit entries, model blocks, Points, and
+  weapons; Official Unit Data supplies only fields the App source does not provide
+- Settings **Import Rule…** asks whether App Text or PDF / Official Data is being
+  updated, and replaces only that source-specific JSON without changing the source file
+- Every Game System consults only its own named JSON rule. Parser failure blocks the
+  import; there is no silent Generic or Quick Import fallback
+- PySide6 desktop shell with working Collection, Import, and Settings pages
+- Automated database and service tests
+
+Revision 0.99.1 adds a dark command-style Dashboard with KPI cards, Game System filtering,
+Faction Points bars, and sortable detail; Faction exports can be complete SQLite databases or
+Excel-friendly WMS Collection CSV files. WMS CSV exports can be imported as new Collection
+records with current magnetized/active model state. Settings also includes a searchable Rule
+JSON Manager for adding, editing, and deleting official profiles, validated App Rule JSON edits,
+and an append-only manual Change Log.
+
+Revision 0.99.2 increases the main navigation tab height and vertical text padding so labels
+remain fully visible with Windows display scaling and high-DPI fonts.
+Drop-down controls now use a larger high-contrast white arrow for reliable visibility on the
+dark theme.
+
+Revision 0.99.4 makes text white across the main window and every independent dialog,
+including Settings labels, explanatory and status text, edit forms, expanded
+drop-down lists, menus, table selections, headers, and selected navigation tabs. Navigation
+rows use a fixed high-DPI-safe height and separate spacing so the selected background and label
+cannot overlap adjacent tabs.
+
+App Text import no longer fails when a unit is absent from the PDF / Official Data rule. The
+preview keeps model counts parsed from App Text, identifies every missing profile, and asks for
+confirmation before importing. Entries with no explicit App count use one model and keep Points
+blank until the PDF rule is updated or the unit is edited.
+
+Collection filter options now come from the database hierarchy instead of only existing model
+rows. Newly created and still-empty Game Systems and Factions appear immediately, while Faction
+and Unit choices remain scoped to the selected Game System.
+
+Revision 1.0.0 separates parser logic from official Unit data. Each pair is bound to one
+immutable Game System ID while remaining easy to find under `import_rules/<Game System>/`.
+Settings provides separate Import Parser Rule JSON and Import Unit JSON actions, binding/status
+details, and generation of a declarative parser rule. The 40K parser preserves model blocks,
+model names, quantities, Points, and per-model weapons; AoS retains official-size/default-loadout
+behaviour. Import detection can warn about a format but cannot switch or create the selected
+Game System. Deleting a Game System lists all affected database records and files and requires
+typing the exact system name. Editable, read-only, and disabled text fields now have visibly
+different dark-theme styles.
+
+All imports follow one system-level rule: detection and Preview are read-only; the Confirm
+action is enabled only for a valid, unchanged Preview; failures restore every affected target.
+CSV validates every row and existing Game System before confirmation. Parser/Unit JSON files
+are inspected and summarized before replacement. A new Parser's test button is shown only
+before a valid Parser exists; existing Parsers retain view, export, replace, and delete actions.
+
+Revision 1.0.2 makes App Text and PDF equal Unit Data sources. Both compare detected
+profiles with the selected Game System's current Unit Data, list every new Unit and every
+existing Unit that will be overwritten, and require explicit confirmation before writing.
+Settings shows a per-system Unit Data Import History with the successful import time,
+method, new-Unit count, and overwritten-Unit count. Points remain Unit-level data for every
+Game System; Physical Model rows do not own or duplicate Points.
+
+Parser creation/update and Unit Data update now expose separate App Text and PDF actions.
+Unit points are stored at Unit Instance level; Physical Models never own unit points.
+
+Revision 1.0.3 fixes Unit Points lookup when PDF extraction contains duplicate rows or
+multiple legal Unit-size brackets. Exact duplicates are de-duplicated and the smallest
+legal Unit profile supplies the normal Points for every Game System. Historical erroneous
+zero values fall back to resolved Unit Data while Physical Models remain point-free.
+
+Revision 1.0.4 separates UI profile de-duplication from authoritative Points lookup. When
+App Text and PDF updates leave both a profile without Points and an official profile with
+Points in Unit Data, Collection and Dashboard now inspect all confirmed Unit Data rows,
+ignore missing Points, and retain the correct legal-bracket value.
+
+Cloud sync, market monitoring, and meta analysis remain outside Revision 1.0.4.
+
+Revision 1.0.6 persists the current Unit Instance Points in SQLite. Import and Active Model
+changes resolve the standard value from confirmed Unit Data JSON and write it with the
+physical collection state. Collection, Dashboard, CSV and database exports use the persisted
+value. Refresh compares it with the current Active Model's Unit Data value; differences are
+shown in yellow without overwriting the database, so manual adjustments remain durable.
+
+Revision 1.0.7 fixes 40K import validation so Preview and Import use the selected Game
+System and report missing Unit Size separately from missing Points. Collection can filter
+standard and yellow-highlighted Points, and the editor can reset a manual value to current
+Unit Data while updating SQLite. Dashboard adds bar/pie selection for Faction Points, Game
+System Points and model counts, and per-Faction assembled and painted ratios. Settings keeps
+Parser and Unit Data actions in the same order and accepts either a local PDF or PDF URL.
+Selected-tab highlighting is stable across hover transitions.
+
+## Quick start
+
+Requires Python 3.11 or newer.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install -e ".[dev,gui]"
+pytest
+python -m wms
+```
+
+On Windows PowerShell, activation is usually:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+By default, the application stores data in the platform user-data directory.
+Set `WMS_DATA_DIR` to use a different location during development.
+
+Runtime data is organized as:
+
+```text
+data/database/wms.sqlite3                 one database for every physical model
+data/import_rules/<Game System>/<Game System>.import-rule.json  parser logic
+data/import_rules/<Game System>/<Game System>.unit-data.json    extracted/official unit data
+data/config/urls.json                     per-system Battle Profiles URLs
+```
+
+Existing `wms.sqlite3` is moved automatically. Legacy combined
+`import_rules/<Game System>.json` files are split on first use; the original is kept
+as `<Game System>.legacy.json`.
+
+## Project layout
+
+```text
+src/wms/          application code
+tests/            automated tests
+docs/             executable product and architecture baseline
+```
+
+See `docs/V0_1_BASELINE.md` for scope and acceptance criteria.
+
+## Beginner code guide
+
+`docs/WMS_Code_Line_by_Line_Guide.docx` explains every effective line in the
+current Python application and test suite. Update this guide whenever a new
+code version changes `src/wms/*.py` or `tests/test_collection.py`.
