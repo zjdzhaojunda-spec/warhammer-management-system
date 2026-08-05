@@ -1,0 +1,2 @@
+[console_scripts]
+wms = wms.__main__:main

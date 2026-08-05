@@ -1,0 +1,23 @@
+README.md
+pyproject.toml
+src/warhammer_management_system.egg-info/PKG-INFO
+src/warhammer_management_system.egg-info/SOURCES.txt
+src/warhammer_management_system.egg-info/dependency_links.txt
+src/warhammer_management_system.egg-info/entry_points.txt
+src/warhammer_management_system.egg-info/requires.txt
+src/warhammer_management_system.egg-info/top_level.txt
+src/wms/__init__.py
+src/wms/__main__.py
+src/wms/collection.py
+src/wms/db.py
+src/wms/gui.py
+src/wms/paths.py
+src/wms/rules.py
+src/wms/assets/combo_down_arrow.svg
+src/wms/default_rules/Age of Sigmar.json
+src/wms/gw_import/__init__.py
+src/wms/gw_import/aos_inventory.py
+src/wms/gw_import/common.py
+src/wms/gw_import/models.py
+src/wms/gw_import/warhammer_40k.py
+tests/test_collection.py

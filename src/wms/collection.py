@@ -712,6 +712,11 @@ class CollectionService:
                 unit_name = _clean_name(imported.name, "unit")
                 if imported.model_count < 1:
                     raise CollectionError(f"Invalid model count for {unit_name}")
+                expanded_models = [
+                    (model.name, model.weapons)
+                    for model in imported.physical_models
+                    for _ in range(model.quantity)
+                ]
                 # Each imported army-list entry is a distinct owned unit, even
                 # when another entry in the same faction has the same name.
                 unit_id = str(uuid4())
@@ -723,15 +728,12 @@ class CollectionService:
                      _reference_code("U", system_name, unit_name, unit_id), imported.points),
                 )
                 for number in range(1, imported.model_count + 1):
-                    expanded = [
-                        (model.name, model.weapons)
-                        for model in imported.physical_models
-                        for _ in range(model.quantity)
-                    ]
-                    if expanded:
-                        base_name, weapons = expanded[number - 1]
-                        duplicate_total = sum(1 for name, _ in expanded if name == base_name)
-                        duplicate_number = sum(1 for name, _ in expanded[:number] if name == base_name)
+                    if number <= len(expanded_models):
+                        base_name, weapons = expanded_models[number - 1]
+                        duplicate_total = sum(1 for name, _ in expanded_models if name == base_name)
+                        duplicate_number = sum(
+                            1 for name, _ in expanded_models[:number] if name == base_name
+                        )
                         display_name = base_name if duplicate_total == 1 else f"{base_name} {duplicate_number}"
                     else:
                         weapons = ()

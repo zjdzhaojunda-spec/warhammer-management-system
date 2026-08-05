@@ -89,6 +89,27 @@ def _resolve_unit_instance_points(parsed: ParsedArmy, rules: RulesManager,
     )
 
 
+def _import_quantity_rows(units: tuple[ImportedUnit, ...], faction: str):
+    """Describe the exact second-stage import quantities without merging duplicate Units."""
+    rows = [
+        {
+            "key": index,
+            "action": "Import",
+            "faction": faction,
+            "unit": unit.name,
+            "change": f"{unit.model_count} Physical Model"
+                      f"{'s' if unit.model_count != 1 else ''}",
+        }
+        for index, unit in enumerate(units)
+    ]
+    return rows, sum(unit.model_count for unit in units)
+
+
+def _confirmation_includes_row(allow_selection: bool, is_checked: bool) -> bool:
+    """Read-only confirmation rows are always included; selectable rows follow their checkbox."""
+    return not allow_selection or is_checked
+
+
 def _collection_weapon(row) -> str:
     """AoS has no selectable weapon profile; its loadout is always Default."""
     if row.game_system.strip().casefold() == "age of sigmar":
@@ -378,6 +399,7 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                      confirm_label: str = "Confirm Selected", allow_selection: bool = True,
                      secondary_label: str | None = None):
             super().__init__(parent)
+            self.allow_selection = allow_selection
             self.setWindowTitle(title)
             self.resize(860, 560)
             layout = QVBoxLayout(self)
@@ -398,6 +420,11 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                 if allow_selection:
                     item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
                     item.setCheckState(0, Qt.Checked)
+                else:
+                    # QTreeWidgetItem may include ItemIsUserCheckable in its
+                    # default flags.  Read-only confirmation rows are all in
+                    # scope and must not be interpreted as unchecked Units.
+                    item.setFlags(item.flags() & ~Qt.ItemIsUserCheckable)
                 self.units.addTopLevelItem(item)
             for column in range(4):
                 self.units.resizeColumnToContents(column)
@@ -444,7 +471,9 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
             selected = set()
             for index in range(self.units.topLevelItemCount()):
                 item = self.units.topLevelItem(index)
-                if not (item.flags() & Qt.ItemIsUserCheckable) or item.checkState(0) == Qt.Checked:
+                if _confirmation_includes_row(
+                    self.allow_selection, item.checkState(0) == Qt.Checked
+                ):
                     selected.add(item.data(0, Qt.UserRole))
             return selected
 
@@ -1916,6 +1945,20 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                       if any(unit.name == name for unit in selected_units)),
                 self.parsed.detected_format,
             )
+            quantity_rows, physical_model_total = _import_quantity_rows(
+                selected_units, target_faction
+            )
+            quantity_dialog = UnitListConfirmationDialog(
+                self, "Confirm physical model quantities",
+                f"The selected {len(selected_units)} Unit entries will create "
+                f"{physical_model_total} Physical Models in Collection. "
+                "Confirm these detected quantities before any data is written.",
+                quantity_rows,
+                f"Import {physical_model_total} Physical Models",
+                False,
+            )
+            if quantity_dialog.exec() != QDialog.Accepted:
+                return
             # Recheck the immutable Preview immediately before the first write.
             if self.preview_snapshot != self.current_import_snapshot():
                 self.invalidate_preview()
@@ -1923,8 +1966,12 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                 return
             unit_data_path = rules.pdf_rule_path(self.system.currentText())
             change_log_path = unit_data_path.parent / "change_log.jsonl"
+            original_unit_data = None
+            original_change_log = None
             try:
-                original_unit_data = unit_data_path.read_bytes()
+                original_unit_data = (
+                    unit_data_path.read_bytes() if unit_data_path.exists() else None
+                )
                 original_change_log = (
                     change_log_path.read_bytes() if change_log_path.exists() else None
                 )
@@ -1938,10 +1985,6 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                     import_method="App Text", new_units=len(new_units),
                     overwritten_units=len(overwritten_units),
                 )
-            except (RulesError, OSError) as exc:
-                QMessageBox.warning(self, "Import blocked", f"Unit Data could not be staged:\n{exc}\n\nNo Collection records were changed.")
-                return
-            try:
                 # Unit Data is the single source of truth for Unit Points for
                 # every Game System.  App/PDF source values are never written
                 # directly to Collection; they must first survive Preview and
@@ -1953,9 +1996,12 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                     self.system.currentText(), target_faction, import_data.units,
                     self.system.currentData(),
                 )
-            except CollectionError as exc:
+            except Exception as exc:
                 try:
-                    unit_data_path.write_bytes(original_unit_data)
+                    if original_unit_data is None:
+                        unit_data_path.unlink(missing_ok=True)
+                    else:
+                        unit_data_path.write_bytes(original_unit_data)
                     if original_change_log is None:
                         change_log_path.unlink(missing_ok=True)
                     else:
@@ -1963,7 +2009,11 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
                 except OSError as restore_exc:
                     QMessageBox.critical(self, "Import rollback failed", f"Collection was rolled back, but Unit Data restoration failed:\n{restore_exc}")
                     return
-                QMessageBox.warning(self, "Could not import army", f"{exc}\n\nCollection and Unit Data were rolled back.")
+                QMessageBox.warning(
+                    self, "Could not import army",
+                    f"{type(exc).__name__}: {exc}\n\n"
+                    "Collection and Unit Data were rolled back. No Physical Models were added."
+                )
                 return
             self.invalidate_preview()
             collection_page.refresh_all()
@@ -3217,7 +3267,7 @@ def run_gui(service: CollectionService, rules: RulesManager) -> int:
         QToolTip { background: #252c37; color: #ffffff; border: 1px solid #46505f; }
     """.replace("__COMBO_ARROW_PATH__", combo_arrow_path))
     window = QMainWindow()
-    window.setWindowTitle("Warhammer Management System — Revision 1.0.7")
+    window.setWindowTitle("Warhammer Management System — Revision 1.0.10")
     window.resize(1100, 720)
     root = QWidget()
     layout = QHBoxLayout(root)

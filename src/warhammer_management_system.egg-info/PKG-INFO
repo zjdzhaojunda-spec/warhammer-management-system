@@ -1,3 +1,17 @@
+Metadata-Version: 2.4
+Name: warhammer-management-system
+Version: 1.0.10
+Summary: Local-first Warhammer collection manager
+Author: WMS Project
+License: Proprietary
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pypdf<7,>=5
+Provides-Extra: gui
+Requires-Dist: PySide6<7,>=6.7; extra == "gui"
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"
+
 # Warhammer Management System (WMS)
 
 WMS is a local-first desktop application for managing a physical Warhammer

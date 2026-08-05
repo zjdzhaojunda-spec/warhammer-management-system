@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "warhammer-management-system"
-version = "1.0.7"
+version = "1.0.10"
 description = "Local-first Warhammer collection manager"
 readme = "README.md"
 requires-python = ">=3.11"

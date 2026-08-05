@@ -1,0 +1,7 @@
+pypdf<7,>=5
+
+[dev]
+pytest<9,>=8
+
+[gui]
+PySide6<7,>=6.7

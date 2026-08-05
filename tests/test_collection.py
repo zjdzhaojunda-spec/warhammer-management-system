@@ -20,6 +20,7 @@ from wms.gui import (
     _collection_filter_values, _export_faction_csv, _import_wms_collection_csv, _profiles_for_faction,
     _resolve_unit_instance_points, _dashboard_chart_values, _points_filter_matches,
     _target_unit_size, _missing_unit_points,
+    _confirmation_includes_row, _import_quantity_rows,
 )
 import wms.rules as rules_module
 from wms.rules import RulesError, RulesManager, UnitProfile
@@ -1342,6 +1343,100 @@ def test_40k_app_points_are_saved_even_when_unit_has_no_weapon_rows(tmp_path):
     assert row.current_points is None
     assert row.unit_points == 125
     assert row.current_weapon_configuration == "Default"
+
+
+def test_import_quantity_confirmation_keeps_duplicate_unit_entries_separate():
+    from wms.gui import _import_quantity_rows
+
+    units = (
+        ImportedUnit("Catacomb Command Barge", 1, points=120),
+        ImportedUnit("Catacomb Command Barge", 1, points=120),
+        ImportedUnit("Necron Warriors", 20, points=190),
+    )
+
+    rows, total = _import_quantity_rows(units, "Necrons")
+
+    assert [row["key"] for row in rows] == [0, 1, 2]
+    assert [row["unit"] for row in rows] == [
+        "Catacomb Command Barge", "Catacomb Command Barge", "Necron Warriors",
+    ]
+    assert [row["change"] for row in rows] == [
+        "1 Physical Model", "1 Physical Model", "20 Physical Models",
+    ]
+    assert total == 22
+
+
+def test_read_only_quantity_confirmation_includes_every_displayed_unit():
+    assert _confirmation_includes_row(False, False) is True
+    assert _confirmation_includes_row(False, True) is True
+    assert _confirmation_includes_row(True, False) is False
+    assert _confirmation_includes_row(True, True) is True
+
+
+def test_necron_duplicate_units_import_as_independent_unit_instances(tmp_path):
+    database = Database(tmp_path / "collection.sqlite3")
+    database.initialize()
+    service = CollectionService(database)
+    system_id = service.create_game_system("40K")
+    units = (
+        ImportedUnit("Catacomb Command Barge", 1, points=120),
+        ImportedUnit("Catacomb Command Barge", 1, points=120),
+        ImportedUnit("Necron Warriors", 20, points=190),
+    )
+
+    assert service.import_army("40K", "Necrons", units, system_id) == 22
+    rows = service.list_collection()
+    assert len({row.unit_id for row in rows if row.unit == "Catacomb Command Barge"}) == 2
+    assert len([row for row in rows if row.unit == "Necron Warriors"]) == 20
+
+
+def test_read_only_quantity_confirmation_imports_all_340_physical_models(tmp_path):
+    """Exercise the reported large-import path through the persisted Collection data."""
+    database = Database(tmp_path / "collection.sqlite3")
+    database.initialize()
+    service = CollectionService(database)
+    system_id = service.create_game_system("40K")
+    units = tuple(
+        ImportedUnit(f"Necron Unit {index + 1}", 4, points=100 + index)
+        for index in range(85)
+    )
+
+    rows, total = _import_quantity_rows(units, "Necrons")
+    included_keys = {
+        row["key"] for row in rows
+        if _confirmation_includes_row(False, False)
+    }
+    selected_units = tuple(
+        unit for index, unit in enumerate(units) if index in included_keys
+    )
+
+    assert total == 340
+    assert len(selected_units) == 85
+    assert service.import_army("40K", "Necrons", selected_units, system_id) == 340
+    collection_rows = service.list_collection()
+    assert len(collection_rows) == 340
+    assert len({row.unit_id for row in collection_rows}) == 85
+
+
+def test_import_fills_models_when_app_detail_count_is_shorter_than_unit_count(tmp_path):
+    """GW exports may declare 10 models but list loadout details for only 5."""
+    database = Database(tmp_path / "collection.sqlite3")
+    database.initialize()
+    service = CollectionService(database)
+    system_id = service.create_game_system("40K")
+    unit = ImportedUnit(
+        "Immortals",
+        10,
+        (ImportedPhysicalModel("Immortal", 5, ("Close combat weapon", "Gauss blaster")),),
+        points=140,
+    )
+
+    assert service.import_army("40K", "Necrons", (unit,), system_id) == 10
+    rows = service.list_collection()
+    assert len(rows) == 10
+    names = {row.display_name for row in rows}
+    assert {f"Immortal {number}" for number in range(1, 6)} <= names
+    assert {f"Immortals {number}" for number in range(6, 11)} <= names
 
 
 def test_declarative_parser_json_changes_actual_text_extraction():
